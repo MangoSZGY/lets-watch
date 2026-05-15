@@ -4,22 +4,25 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.util.List;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
-@Table(name = "reviews")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class Review {
-
+public class Director {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private int rating;
-    private String comment;
+    private String name;
 
-    @ManyToOne
-    @JoinColumn(name = "movie_id")
-    private Movie movie;
+    @OneToMany(mappedBy = "director")
+    @JsonIgnore
+    private List<Movie> movies;
+
+    public Director(String name) {
+        this.name = name;
+    }
 }

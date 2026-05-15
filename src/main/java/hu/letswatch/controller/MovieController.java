@@ -1,7 +1,9 @@
 package hu.letswatch.controller;
 
+import hu.letswatch.model.Director;
 import hu.letswatch.model.Movie;
 import hu.letswatch.repository.MovieRepository;
+import hu.letswatch.repository.DirectorRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
@@ -15,6 +17,9 @@ public class MovieController {
 
     @Autowired
     private MovieRepository repository;
+
+    @Autowired
+    private DirectorRepository directorRepository;
 
     @Autowired
     private RestTemplate restTemplate;
@@ -42,7 +47,6 @@ public class MovieController {
                     String year = m.get("Year").replaceAll("[^0-9]", "");
                     movie.setReleaseYear(year.length() >= 4 ? Integer.parseInt(year.substring(0, 4)) : 0);
                 } catch (Exception e) { movie.setReleaseYear(0); }
-                movie.setGenre("Movie");
                 return movie;
             }).collect(Collectors.toList());
         } catch (Exception e) { return Collections.emptyList(); }
@@ -59,8 +63,12 @@ public class MovieController {
             movie.setTitle((String) response.get("Title"));
             movie.setGenre((String) response.get("Genre"));
             movie.setPlot((String) response.get("Plot"));
-            movie.setDirector((String) response.get("Director"));
             movie.setPosterUrl((String) response.get("Poster"));
+
+            // Itt hozzuk létre a Director objektumot a kapott névből
+            String directorName = (String) response.get("Director");
+            movie.setDirector(new Director(directorName));
+
             try {
                 String year = ((String) response.get("Year")).replaceAll("[^0-9]", "");
                 movie.setReleaseYear(Integer.parseInt(year.substring(0, 4)));
@@ -71,6 +79,14 @@ public class MovieController {
 
     @PostMapping
     public Movie saveOrUpdateMovie(@RequestBody Movie movie) {
+        // Megnézzük, létezik-e már a rendező, hogy ne duplikáljuk
+        if (movie.getDirector() != null) {
+            Optional<Director> existingDirector = directorRepository.findByName(movie.getDirector().getName());
+            if (existingDirector.isPresent()) {
+                movie.setDirector(existingDirector.get());
+            }
+        }
+
         return repository.findAll().stream()
                 .filter(m -> m.getTitle().equalsIgnoreCase(movie.getTitle()))
                 .findFirst()
