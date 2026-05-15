@@ -91,42 +91,36 @@
         }
     }
 
-    // HOME OLDAL BETÖLTÉSE (Szerveren keresztül)
     async function init() {
         const grid = document.getElementById('movieGrid');
         grid.innerHTML = '<p style="color: var(--yellow)">Loading let$watch records...</p>';
-
         try {
-            // A Java backend "search-online" végpontját hívjuk
-            const response = await fetch('/api/movies/search-online?query=Marvel');
+            const response = await fetch('/api/movies/search-online?query=2024');
             popularMovies = await response.json();
             renderView();
         } catch (error) {
-            grid.innerHTML = '<p style="color: red">Backend nem elérhető! Indítsd el a Spring Boot-ot.</p>';
+            grid.innerHTML = '<p style="color: red">Backend Error! Check your server.</p>';
         }
     }
 
-    // KERESÉS (Szerveren keresztül)
     async function searchOnline() {
         const query = document.getElementById('searchField').value;
         if(!query) return;
         const grid = document.getElementById('movieGrid');
         grid.innerHTML = '<p>Searching...</p>';
-
         try {
             const response = await fetch(`/api/movies/search-online?query=${query}`);
             const results = await response.json();
             document.getElementById('viewTitle').innerText = `Results for: ${query}`;
             renderCustomList(results);
         } catch (error) {
-            alert("Search failed. Is the backend running?");
+            alert("Search failed.");
         }
     }
 
     function createCard(m, isExt) {
         const div = document.createElement('div');
         div.className = 'card';
-        // A Java Movie objektum mezőneveit használjuk
         const title = m.title;
         const poster = (m.posterUrl && m.posterUrl !== "N/A") ? (m.posterUrl.startsWith('http') ? PROXY + m.posterUrl : m.posterUrl) : 'https://via.placeholder.com/300x450?text=No+Poster';
         let rating = (!isExt && m.status === 'WATCHED') ? `<span class="rating-label">${"$".repeat(m.rating)}</span>` : "";
@@ -137,18 +131,30 @@
     }
 
     async function showModal(m, isExt) {
-        const res = await fetch('/api/movies');
-        const myMovies = await res.json();
-        const existing = myMovies.find(mm => mm.title.toLowerCase() === m.title.toLowerCase());
-
-        document.getElementById('mTitle').innerText = m.title;
-        document.getElementById('mImg').src = (m.posterUrl && m.posterUrl !== "N/A") ? (m.posterUrl.startsWith('http') ? PROXY + m.posterUrl : m.posterUrl) : 'https://via.placeholder.com/300x450';
-        document.getElementById('mMeta').innerText = `${m.releaseYear} • ${m.genre || 'Movie'}`;
-        document.getElementById('mPlot').innerText = m.plot || "No description available.";
-
+        const modalOverlay = document.getElementById('modalOverlay');
         const actions = document.getElementById('modalActions');
-        actions.innerHTML = '';
+        actions.innerHTML = 'Loading details...';
+        modalOverlay.style.display = 'flex';
 
+        let movieToDisplay = m;
+
+        if (isExt) {
+            try {
+                const res = await fetch(`/api/movies/details?title=${encodeURIComponent(m.title)}`);
+                movieToDisplay = await res.json();
+            } catch (e) { console.error("Details fetch failed."); }
+        }
+
+        const resAll = await fetch('/api/movies');
+        const myMovies = await resAll.json();
+        const existing = myMovies.find(mm => mm.title.toLowerCase() === movieToDisplay.title.toLowerCase());
+
+        document.getElementById('mTitle').innerText = movieToDisplay.title;
+        document.getElementById('mImg').src = (movieToDisplay.posterUrl && movieToDisplay.posterUrl !== "N/A") ? (movieToDisplay.posterUrl.startsWith('http') ? PROXY + movieToDisplay.posterUrl : movieToDisplay.posterUrl) : 'https://via.placeholder.com/300x450';
+        document.getElementById('mMeta').innerText = `${movieToDisplay.releaseYear} • ${movieToDisplay.genre}`;
+        document.getElementById('mPlot').innerText = movieToDisplay.plot;
+
+        actions.innerHTML = '';
         if (existing) {
             if (existing.status === 'WATCHLIST') {
                 actions.innerHTML = `<button class="btn-action" onclick="markWatched(${existing.id})">Mark as Watched</button>`;
@@ -156,11 +162,10 @@
                 actions.innerHTML = `<div class="rating-box">My Score: ${"$".repeat(existing.rating)}</div>`;
             }
         } else {
-            // Itt a teljes m objektumot küldjük mentésre
-            actions.innerHTML = `<button class="btn-action" onclick="saveMovieToDB(${JSON.stringify(m).replace(/"/g, '&quot;')}, 'WATCHLIST')">Add to Watchlist</button>
-                                 <button class="btn-action" style="background:#222; color:var(--yellow); border:1px solid var(--yellow)" onclick="saveMovieToDB(${JSON.stringify(m).replace(/"/g, '&quot;')}, 'WATCHED')">Add to Watched List</button>`;
+            const movieJson = JSON.stringify(movieToDisplay).replace(/'/g, "&apos;");
+            actions.innerHTML = `<button class="btn-action" onclick='saveMovieToDB(${movieJson}, "WATCHLIST")'>Add to Watchlist</button>
+                                 <button class="btn-action" style="background:#222; color:var(--yellow); border:1px solid var(--yellow)" onclick='saveMovieToDB(${movieJson}, "WATCHED")'>Add to Watched List</button>`;
         }
-        document.getElementById('modalOverlay').style.display = 'flex';
     }
 
     async function saveMovieToDB(movieData, status) {
@@ -169,7 +174,6 @@
 
         movieData.status = status;
         movieData.rating = rating;
-        // Tisztítjuk az ID-t, ha esetleg lenne (új mentésnél ne legyen)
         delete movieData.id;
 
         await fetch('/api/movies', {
@@ -194,16 +198,31 @@
         renderView();
     }
 
+    // EZ A FÜGGVÉNY JAVÍTJA KI AZ ONLINE SZŰRÉST
     async function renderView() {
         const grid = document.getElementById('movieGrid');
         const genre = document.getElementById('genreFilter').value;
         grid.innerHTML = '';
 
         if(currentTab === 'REC') {
-            popularMovies.filter(m => genre === 'All' || (m.genre && m.genre.includes(genre))).forEach(m => grid.appendChild(createCard(m, true)));
+            if (genre !== 'All') {
+                grid.innerHTML = `<p style="color: var(--yellow)">Searching for ${genre} movies...</p>`;
+                try {
+                    const response = await fetch(`/api/movies/search-online?query=${genre}`);
+                    const results = await response.json();
+                    renderCustomList(results);
+                } catch (e) { console.error("Genre search failed"); }
+            } else {
+                popularMovies.forEach(m => grid.appendChild(createCard(m, true)));
+            }
         } else {
-            const movies = await (await fetch('/api/movies')).json();
-            movies.filter(m => m.status === currentTab && (genre === 'All' || (m.genre && m.genre.includes(genre)))).forEach(m => grid.appendChild(createCard(m, false)));
+            const response = await fetch('/api/movies');
+            const movies = await response.json();
+            const filtered = movies.filter(m =>
+                m.status === currentTab &&
+                (genre === 'All' || (m.genre && m.genre.toLowerCase().includes(genre.toLowerCase())))
+            );
+            filtered.forEach(m => grid.appendChild(createCard(m, false)));
         }
     }
 
@@ -214,7 +233,7 @@
     }
 
     async function removeMovie(id) {
-        if(confirm("Delete from let$watch?")) {
+        if(confirm("Delete this movie?")) {
             await fetch(`/api/movies/${id}`, { method: 'DELETE' });
             renderView();
         }

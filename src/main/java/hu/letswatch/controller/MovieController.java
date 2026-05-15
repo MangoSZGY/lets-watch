@@ -19,7 +19,6 @@ public class MovieController {
     @Autowired
     private RestTemplate restTemplate;
 
-    // AZ ÚJ KULCSOD
     private final String API_KEY = "d96764e4";
 
     @GetMapping
@@ -30,36 +29,44 @@ public class MovieController {
     @GetMapping("/search-online")
     public List<Movie> searchOnline(@RequestParam String query) {
         String url = "http://www.omdbapi.com/?s=" + query + "&apikey=" + API_KEY;
-
         try {
             Map<String, Object> response = restTemplate.getForObject(url, Map.class);
-
-            if (response == null || !"True".equals(response.get("Response"))) {
-                return Collections.emptyList();
-            }
+            if (response == null || !"True".equals(response.get("Response"))) return Collections.emptyList();
 
             List<Map<String, String>> searchResults = (List<Map<String, String>>) response.get("Search");
-
             return searchResults.stream().map(m -> {
                 Movie movie = new Movie();
                 movie.setTitle(m.get("Title"));
-
+                movie.setPosterUrl(m.get("Poster"));
                 try {
                     String year = m.get("Year").replaceAll("[^0-9]", "");
                     movie.setReleaseYear(year.length() >= 4 ? Integer.parseInt(year.substring(0, 4)) : 0);
-                } catch (Exception e) {
-                    movie.setReleaseYear(0);
-                }
-
-                movie.setPosterUrl(m.get("Poster"));
+                } catch (Exception e) { movie.setReleaseYear(0); }
                 movie.setGenre("Movie");
-                movie.setPlot("Kattints a részletekért!");
                 return movie;
             }).collect(Collectors.toList());
+        } catch (Exception e) { return Collections.emptyList(); }
+    }
 
-        } catch (Exception e) {
-            return Collections.emptyList();
-        }
+    @GetMapping("/details")
+    public Movie getDetails(@RequestParam String title) {
+        String url = "http://www.omdbapi.com/?t=" + title + "&plot=full&apikey=" + API_KEY;
+        try {
+            Map<String, Object> response = restTemplate.getForObject(url, Map.class);
+            if (response == null) return null;
+
+            Movie movie = new Movie();
+            movie.setTitle((String) response.get("Title"));
+            movie.setGenre((String) response.get("Genre"));
+            movie.setPlot((String) response.get("Plot"));
+            movie.setDirector((String) response.get("Director"));
+            movie.setPosterUrl((String) response.get("Poster"));
+            try {
+                String year = ((String) response.get("Year")).replaceAll("[^0-9]", "");
+                movie.setReleaseYear(Integer.parseInt(year.substring(0, 4)));
+            } catch (Exception e) { movie.setReleaseYear(0); }
+            return movie;
+        } catch (Exception e) { return null; }
     }
 
     @PostMapping
