@@ -14,13 +14,11 @@ public class ReviewController {
     @Autowired
     private ReviewRepository reviewRepository;
 
-    // Összes értékelés lekérése
     @GetMapping
     public List<Review> getAllReviews() {
         return reviewRepository.findAll();
     }
 
-    // Új értékelés mentése
     @PostMapping
     public Review createReview(@RequestBody Review review) {
         return reviewRepository.save(review);

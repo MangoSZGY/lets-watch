@@ -65,7 +65,6 @@ public class MovieController {
             movie.setPlot((String) response.get("Plot"));
             movie.setPosterUrl((String) response.get("Poster"));
 
-            // Itt hozzuk létre a Director objektumot a kapott névből
             String directorName = (String) response.get("Director");
             movie.setDirector(new Director(directorName));
 
@@ -79,7 +78,6 @@ public class MovieController {
 
     @PostMapping
     public Movie saveOrUpdateMovie(@RequestBody Movie movie) {
-        // Megnézzük, létezik-e már a rendező, hogy ne duplikáljuk
         if (movie.getDirector() != null) {
             Optional<Director> existingDirector = directorRepository.findByName(movie.getDirector().getName());
             if (existingDirector.isPresent()) {

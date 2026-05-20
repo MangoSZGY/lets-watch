@@ -9,6 +9,5 @@ import org.springframework.test.context.ActiveProfiles;
 public class MovieRepositoryTest {
     @Test
     void contextLoads() {
-        // Üres teszt, nem fog elszállni
     }
 }
