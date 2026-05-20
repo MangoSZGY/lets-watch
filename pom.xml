@@ -89,6 +89,13 @@
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>${jacoco.version}</version>
+                <configuration>
+                    <excludes>
+                        <exclude>hu/letswatch/LetswatchApplication.class</exclude>
+                        <exclude>hu/letswatch/config/*</exclude>
+                        <exclude>hu/letswatch/model/*</exclude>
+                    </excludes>
+                </configuration>
                 <executions>
                     <execution>
                         <goals>
